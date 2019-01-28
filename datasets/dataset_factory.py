@@ -1,5 +1,6 @@
 """A factory-pattern class which returns classification image/label pairs."""
 from datasets import dataset_utils
+from datasets import pascalvoc_2012
 
 class DatasetConfig():
     def __init__(self, file_pattern, split_sizes):
@@ -51,6 +52,7 @@ synthtext = DatasetConfig(
 datasets_map = {
     'icdar2013':icdar2013,
     'icdar2015':icdar2015,
+    'medicalimage': pascalvoc_2012,
     'scut':scut,
     'td500':td500,
     'tr400':tr400,

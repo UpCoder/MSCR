@@ -1,3 +1,4 @@
+# -*- coding=utf-8 -*-
 # Copyright 2015 Paul Balanca. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -267,7 +268,6 @@ def tf_rotate_image(image, xs, ys):
     return image, bboxes, xs, ys
 
 
-
 def rotate_image(image, xs, ys):
     rotation_angle = np.random.randint(low = -90, high = 90);
     scale = np.random.uniform(low = MIN_ROTATION_SCLAE, high = MAX_ROTATION_SCLAE)
@@ -306,7 +306,8 @@ def rotate_image(image, xs, ys):
     bboxes = np.transpose(np.asarray([ymin, xmin, ymax, xmax]))
     image = np.asarray(image, np.uint8)
     return image, bboxes, xs, ys
- 
+
+
 def preprocess_for_train(image, labels, bboxes, xs, ys,
                          out_shape, data_format='NHWC',
                          scope='ssd_preprocessing_train'):
@@ -483,3 +484,6 @@ def preprocess_image(image,
                                    out_shape=out_shape,
                                    data_format=data_format,
                                    **kwargs)
+
+
+

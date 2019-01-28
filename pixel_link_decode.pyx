@@ -1,3 +1,4 @@
+# -*- coding=utf-8 -*-
 import cv2
 import numpy as np
 
@@ -48,10 +49,11 @@ def is_valid_cord(x, y, w, h):
     
 def decode_image_by_join(pixel_scores, link_scores, 
                  pixel_conf_threshold, link_conf_threshold):
-    pixel_mask = pixel_scores >= pixel_conf_threshold
-    link_mask = link_scores >= link_conf_threshold
+    pixel_mask = pixel_scores >= pixel_conf_threshold   # MORE THAN 0.6
+    link_mask = link_scores >= link_conf_threshold  # MORE THAN 0.9
     points = zip(*np.where(pixel_mask))
     h, w = np.shape(pixel_mask)
+    # 初始化的时候，每个positive pixel都是root 节点
     group_mask = dict.fromkeys(points, -1)
     def find_parent(point):
         return group_mask[point]
@@ -107,8 +109,9 @@ def decode_image_by_join(pixel_scores, link_scores,
                 link_value = link_mask[y, x, n_idx]# and link_mask[ny, nx, reversed_idx]
                 pixel_cls = pixel_mask[ny, nx]
                 if link_value and pixel_cls:
+                    # 并差集
                     join(point, (ny, nx))
-    
+    # 不同的bounding box 他们的mask里面的pixel值从1～N（假设有N个bounding box）
     mask = get_all()
     return mask
 

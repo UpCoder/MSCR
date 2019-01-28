@@ -1,3 +1,4 @@
+# -*- coding=utf-8 -*-
 import tensorflow as tf
 import numpy as np
 import cv2
@@ -73,6 +74,7 @@ def tf_cal_gt_for_single_image(xs, ys, labels):
 
 def cal_gt_for_single_image(normed_xs, normed_ys, labels):
     """
+    For one image, there are some bounding boxes, So, the xs ys is an array
     Args:
         xs, ys: both in shape of (N, 4), 
             and N is the number of bboxes,
@@ -87,26 +89,29 @@ def cal_gt_for_single_image(normed_xs, normed_ys, labels):
         pixel_link_weight
     """
     import config
+    # 最终转置卷积的结果，形状
     score_map_shape = config.score_map_shape
     pixel_cls_weight_method  = config.pixel_cls_weight_method
     h, w = score_map_shape
-    text_label = config.text_label
-    ignore_label = config.ignore_label
-    background_label = config.background_label
-    num_neighbours = config.num_neighbours
-    bbox_border_width = config.bbox_border_width
-    pixel_cls_border_weight_lambda = config.pixel_cls_border_weight_lambda
+    text_label = config.text_label  # 1
+    ignore_label = config.ignore_label  # -1
+    background_label = config.background_label  # 0
+    num_neighbours = config.num_neighbours  # 8
+    bbox_border_width = config.bbox_border_width    # 1
+    pixel_cls_border_weight_lambda = config.pixel_cls_border_weight_lambda  # 1.0
     
     # validate the args
     assert np.ndim(normed_xs) == 2
-    assert np.shape(normed_xs)[-1] == 4
+    assert np.shape(normed_xs)[-1] == 4 # 必须是4个点的坐标
     assert np.shape(normed_xs) == np.shape(normed_ys)
     assert len(normed_xs) == len(labels)
     
 #     assert set(labels).issubset(set([text_label, ignore_label, background_label]))
 
+    # 一幅图像中，所有positive的bound box的个数
     num_positive_bboxes = np.sum(np.asarray(labels) == text_label)
     # rescale normalized xys to absolute values
+    # 在score map上的位置
     xs = normed_xs * w
     ys = normed_ys * h
     
@@ -133,6 +138,9 @@ def cal_gt_for_single_image(normed_xs, normed_ys, labels):
         
         bbox_points = zip(bbox_xs, bbox_ys)
         bbox_contours = util.img.points_to_contours(bbox_points)
+        # 在这个bounding box填充轮廓，方便计算面积
+        # border_width 为-1表示的是填充轮廓,而不是画轮廓
+        # idx = -1 表示填充所有的bounding box
         util.img.draw_contours(bbox_mask, bbox_contours, idx = -1, 
                                color = 1, border_width = -1)
         
@@ -179,18 +187,21 @@ def cal_gt_for_single_image(normed_xs, normed_ys, labels):
             # and all pixels weights in this image sum to N, the same
             # as setting all weights to 1
             num_bbox_pixels = np.sum(bbox_positive_pixel_mask)
-            if num_bbox_pixels > 0: 
+            if num_bbox_pixels > 0:
+                # 平均每个bounding box 的权重=所有bounding box的pixel数量除以bounding box 的个数
                 per_bbox_weight = num_positive_pixels * 1.0 / num_positive_bboxes
+                # 再平均到每个像素的身上
                 per_pixel_weight = per_bbox_weight / num_bbox_pixels
                 pixel_cls_weight += bbox_positive_pixel_mask * per_pixel_weight
         else:
-            raise ValueError, 'pixel_cls_weight_method not supported:%s'\
-                        %(pixel_cls_weight_method)
+            raise ValueError('pixel_cls_weight_method not supported:%s'\
+                        %(pixel_cls_weight_method))
 
     
         ## calculate the labels and weights of links
         ### for all pixels in  bboxes, all links are positive at first
         bbox_point_cords = np.where(bbox_positive_pixel_mask)
+        # 内部的点的link都是1
         pixel_link_label[bbox_point_cords] = 1
 
 
@@ -210,10 +221,15 @@ def cal_gt_for_single_image(normed_xs, normed_ys, labels):
         border_points = zip(*bbox_border_cords)
         def in_bbox(nx, ny):
             return bbox_positive_pixel_mask[ny, nx]
-        
+
+
+
+        # 对于边界上的点
         for y, x in border_points:
+            # 获取周围的点
             neighbours = get_neighbours(x, y)
             for n_idx, (nx, ny) in enumerate(neighbours):
+                # 如果上 (Y, X)领域内的某一个点不满足条件，就把它对应的channel置为0
                 if not is_valid_cord(nx, ny, w, h) or not in_bbox(nx, ny):
                     pixel_link_label[y, x, n_idx] = 0
 
@@ -226,6 +242,12 @@ def cal_gt_for_single_image(normed_xs, normed_ys, labels):
 #         print  num_positive_pixels, np.sum(pixel_cls_label), np.sum(pixel_cls_weight)
 #         import pdb
 #         pdb.set_trace()
+    # (H, W), (H, W), (H, W, 8/4), (H, W, 8/4)
+    # 都是针对一幅图像来计算的
+    # pixel_cls_label: 每个pixel的label
+    # pixel_cls_weight： 每个pixel的权重，计算公式参见论文中的公式2，使得每幅图像中，大小不同的bounding box对loss的共享一样(小的病灶pixel的loss可能就会大一些)
+    # pixel_link_label： 每个pixel的link label
+    # pixel_link_weight： 对应的link weight, 就是将cls_weight复制了4/8份，成了4/8个channel
     return pixel_cls_label, pixel_cls_weight, pixel_link_label, pixel_link_weight
 
 #=====================Ground Truth Calculation End====================
@@ -319,7 +341,7 @@ def rect_to_xys(rect, image_shape):
         return y
     
     rect = ((rect[0], rect[1]), (rect[2], rect[3]), rect[4])
-    points = cv2.cv.BoxPoints(rect)
+    points = cv2.boxPoints(rect)
     points = np.int0(points)
     for i_xy, (x, y) in enumerate(points):
         x = get_valid_x(x)
@@ -330,7 +352,7 @@ def rect_to_xys(rect, image_shape):
 
 # @util.dec.print_calling_in_short
 # @util.dec.timeit
-def mask_to_bboxes(mask, image_shape =  None, min_area = None, 
+def mask_to_bboxes(mask, score_map, image_shape =  None, min_area = None,
                    min_height = None, min_aspect_ratio = None):
     import config
     feed_shape = config.train_image_shape
@@ -347,9 +369,13 @@ def mask_to_bboxes(mask, image_shape =  None, min_area = None,
         min_height = config.min_height
     bboxes = []
     max_bbox_idx = mask.max()
+    #
     mask = util.img.resize(img = mask, size = (image_w, image_h), 
                            interpolation = cv2.INTER_NEAREST)
-    
+    score_map = util.img.resize(img=score_map[0], size=(image_w, image_h))
+    scores = []
+
+    print('the max score is %.4f, the min score is %.4f' % (np.max(score_map), np.min(score_map)))
     for bbox_idx in xrange(1, max_bbox_idx + 1):
         bbox_mask = mask == bbox_idx
 #         if bbox_mask.sum() < 10:
@@ -371,8 +397,11 @@ def mask_to_bboxes(mask, image_shape =  None, min_area = None,
 #             continue
         xys = rect_to_xys(rect, image_shape)
         bboxes.append(xys)
+        xs, ys = np.where(bbox_mask)
+
+        scores.append(np.mean(score_map[xs, ys]))
         
-    return bboxes
+    return bboxes, scores, score_map
 
 
 #============================Decode End===============================

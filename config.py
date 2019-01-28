@@ -8,6 +8,21 @@ from nets import pixel_link_symbol
 import pixel_link
 slim = tf.contrib.slim
 
+type2pixel = {
+    'CYST': (1, 100),
+    'FNH': (1, 100),
+    'HCC': (2, 200),
+    'HEM': (1, 100),
+    'METS': (2, 200)
+}
+pixel2type = {
+    100: 'CYST',
+    200: 'HCC',
+    # 150: 'HCC',
+    # 200: 'HEM',
+    # 250: 'METS'
+}
+
 #=====================================================================
 #====================Pre-processing params START======================
 # VGG mean parameters.
@@ -38,8 +53,8 @@ max_shorter_side = np.infty
 #=====================================================================
 #====================Post-processing params START=====================
 decode_method = pixel_link.DECODE_METHOD_join
-min_area = 300
-min_height = 10
+min_area = 3
+min_height = 1
 #====================Post-processing params END=======================
 #=====================================================================
 
@@ -77,6 +92,7 @@ pixel_link_loss_weight = 1.0
 
 #=====================================================================
 #====================do-not-change configurations START===============
+num_tumor_type = 3 # LD 1+2
 num_classes = 2
 ignore_label = -1
 background_label = 0
@@ -159,6 +175,8 @@ def init_config(image_shape, batch_size = 1,
     _set_batch_size(batch_size)
     
     global batch_size_per_gpu
+    print('batch_size: ', batch_size)
+    print('num_clones: ', num_clones)
     batch_size_per_gpu = batch_size / num_clones
     if batch_size_per_gpu < 1:
         raise ValueError('Invalid batch_size [=%d], \

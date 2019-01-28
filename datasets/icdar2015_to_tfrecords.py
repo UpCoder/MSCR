@@ -8,7 +8,7 @@ import config
 
 def cvt_to_tfrecords(output_path , data_path, gt_path):
     image_names = util.io.ls(data_path, '.jpg')#[0:10];
-    print "%d images found in %s"%(len(image_names), data_path);
+    print("%d images found in %s"%(len(image_names), data_path))
     with tf.python_io.TFRecordWriter(output_path) as tfrecord_writer:
         for idx, image_name in enumerate(image_names):
             oriented_bboxes = [];
@@ -16,7 +16,7 @@ def cvt_to_tfrecords(output_path , data_path, gt_path):
             labels = [];
             labels_text = [];
             path = util.io.join_path(data_path, image_name);
-            print "\tconverting image: %d/%d %s"%(idx, len(image_names), image_name);
+            print("\tconverting image: %d/%d %s"%(idx, len(image_names), image_name))
             image_data = tf.gfile.FastGFile(path, 'r').read()
             
             image = util.img.imread(path, rgb = True);
@@ -38,10 +38,18 @@ def cvt_to_tfrecords(output_path , data_path, gt_path):
                 
                 xs = oriented_box.reshape(4, 2)[:, 0]                
                 ys = oriented_box.reshape(4, 2)[:, 1]
-                xmin = xs.min()
-                xmax = xs.max()
-                ymin = ys.min()
-                ymax = ys.max()
+
+                def to_valid_range(v):
+                    if v < 0:
+                        return 0
+                    if v > 1:
+                        return 1
+                    return v
+
+                xmin = to_valid_range(xs.min())
+                xmax = to_valid_range(xs.max())
+                ymin = to_valid_range(ys.min())
+                ymax = to_valid_range(ys.max())
                 bboxes.append([xmin, ymin, xmax, ymax])
 
                 # might be wrong here, but it doesn't matter because the label is not going to be used in detection
@@ -55,14 +63,14 @@ def cvt_to_tfrecords(output_path , data_path, gt_path):
             tfrecord_writer.write(example.SerializeToString())
         
 if __name__ == "__main__":
-    root_dir = util.io.get_absolute_path('~/dataset/ICDAR2015/Challenge4/')
-    output_dir = util.io.get_absolute_path('~/dataset/pixel_link/ICDAR/')
-    util.io.mkdir(output_dir);
+    root_dir = util.io.get_absolute_path('/home/give/Documents/dataset/ICDAR2017/')
+    output_dir = util.io.get_absolute_path('/home/give/Documents/dataset/ICDAR2017/tfrecords/')
+    util.io.mkdir(output_dir)
 
-    training_data_dir = util.io.join_path(root_dir, 'ch4_training_images')
-    training_gt_dir = util.io.join_path(root_dir,'ch4_training_localization_transcription_gt')
+    training_data_dir = util.io.join_path(root_dir, 'img')
+    training_gt_dir = util.io.join_path(root_dir,'txt')
     cvt_to_tfrecords(output_path = util.io.join_path(output_dir, 'icdar2015_train.tfrecord'), data_path = training_data_dir, gt_path = training_gt_dir)
 
-    test_data_dir = util.io.join_path(root_dir, 'ch4_test_images')
-    test_gt_dir = util.io.join_path(root_dir,'ch4_test_localization_transcription_gt')
-    cvt_to_tfrecords(output_path = util.io.join_path(output_dir, 'icdar2015_test.tfrecord'), data_path = test_data_dir, gt_path = test_gt_dir)
+    # test_data_dir = util.io.join_path(root_dir, 'img')
+    # test_gt_dir = util.io.join_path(root_dir,'txt')
+    # cvt_to_tfrecords(output_path = util.io.join_path(output_dir, 'icdar2015_test.tfrecord'), data_path = test_data_dir, gt_path = test_gt_dir)
